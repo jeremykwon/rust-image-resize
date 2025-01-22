@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>이미지 프로세싱</title>
+  </head>
+  <body>
+    <h1>이미지 프로세싱</h1>
+
+    <input type="file" id="imageInput" accept="image/*" />
+
+    <div style="display: flex; gap: 100px">
+      <div>
+        <h2>원본</h2>
+        <canvas id="original"></canvas>
+      </div>
+
+      <div>
+        <h2>resize</h2>
+        <canvas id="canvas"></canvas>
+      </div>
+
+      
+
+      <div>
+        <h2>sharpening-filter</h2>
+        <canvas id="sharpen-canvas"></canvas>
+      </div>
+    </div>
+
+    <script type="module">
+      import init, {
+        resize_image,
+        upscale_image,
+        apply_sharpen_filter,
+      } from "./pkg/rust_image_resize.js";
+
+      // WASM 초기화
+      async function initWasm() {
+        await init();
+
+        document
+          .getElementById("imageInput")
+          .addEventListener("change", async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // 이미지 파일 읽기
+            const arrayBuffer = await file.arrayBuffer();
+            const inputBytes = new Uint8Array(arrayBuffer);
+
+            // 원본 이미지 표시
+            const originalImg = new Image();
+            const originalBlob = new Blob([inputBytes], { type: "image/png" });
+            originalImg.src = URL.createObjectURL(originalBlob);
+            const originalCanvas = document.getElementById("original");
+            const originalCtx = originalCanvas.getContext("2d");
+            originalImg.onload = () => {
+              originalCanvas.width = originalImg.width;
+              originalCanvas.height = originalImg.height;
+              originalCtx.drawImage(originalImg, 0, 0);
+            };
+
+            // 이미지 리사이즈
+            // Rust WASM 함수 호출
+            const outputBytes = resize_image(inputBytes, 300, 300); // 원하는 크기 지정
+
+            // 결과를 Blob으로 변환하여 Canvas에 표시
+            const blob = new Blob([outputBytes], { type: "image/png" });
+            const img = new Image();
+            img.src = URL.createObjectURL(blob);
+
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            img.onload = () => {
+              canvas.width = img.width;
+              canvas.height = img.height;
+              ctx.drawImage(img, 0, 0);
+            };
+
+            // 샤프닝 필터 적용
+            const sharpenReader = new FileReader();
+
+            const sharpenCanvas = document.getElementById("sharpen-canvas");
+            const sharpenCtx = sharpenCanvas.getContext("2d");
+            sharpenReader.onload = async (e) => {
+              const base64Input = e.target.result.split(",")[1]; // Base64 데이터
+              const sharpenedBase64 = apply_sharpen_filter(base64Input, 2.0);
+
+              // Base64 결과를 이미지로 표시
+              const img = new Image();
+              img.src = "data:image/png;base64," + sharpenedBase64;
+              img.onload = () => {
+                sharpenCanvas.width = img.width;
+                sharpenCanvas.height = img.height;
+                sharpenCtx.drawImage(img, 0, 0);
+              };
+            };
+
+            sharpenReader.readAsDataURL(file);
+          });
+      }
+
+      initWasm();
+    </script>
+  </body>
+</html>

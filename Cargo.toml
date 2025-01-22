@@ -1,0 +1,14 @@
+[package]
+name = "rust-image-resize"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+base64 = "0.21"
+image = "0.24"
+wasm-bindgen = "0.2"
+imageproc = "0.23"
+opencv = "0.72"
+
+[lib]
+crate-type = ["cdylib"]
